@@ -75,6 +75,18 @@ node bin/bridge.js doctor                # health check
 node bin/bridge.js stop                  # stop the background bridge (sessions keep running and re-attach)
 ```
 
+**From WhatsApp** you can also start sessions and talk to Claude:
+
+| Send | What happens |
+|---|---|
+| `/new My Project` | Starts a Claude session on the PC, in the background, in `BRIDGE_WHATSAPP_START_DIR` (default: your home folder). In group mode its group appears right away. |
+| `/new Site in ~/work/site` | Same, in that folder (relative folders resolve against the start folder). |
+| `/new Site in ~/work/site: fix the login bug` | Same, and the text after `:` is Claude's first message. |
+| any message | If it answers no open question, it's typed into Claude as your next message: in a session group to that session; in a 1-to-1 chat to the only running session, or `#2 your text` for session_002. While Claude is working it's queued (🕐) and runs next. |
+| `/exit` | Typed into Claude like any message: ends that session. |
+
+Nothing is typed while that session has a permission request or question open: answer it first. Sessions started from WhatsApp open in a window of the tmux session `claude-bridge` (one window per session) when tmux is installed (`sudo apt install tmux`): watch them and type into them with `tmux attach -t claude-bridge`, switch windows with `Ctrl+b n` / `Ctrl+b w`, and leave without stopping anything with `Ctrl+b d`. Set `BRIDGE_TMUX_SESSION` to use another name, or `BRIDGE_TMUX_SESSION=off` to run them in the background with no terminal. Their screen output is also copied to `~/.claude-chat-bridge/logs/remote-session-*.log`. To turn remote starting off, set `BRIDGE_WHATSAPP_REMOTE_START=off`.
+
 ### 6. If something doesn't arrive
 
 | Symptom | Check |

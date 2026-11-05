@@ -56,6 +56,36 @@ export class ResponseRouter {
     return { ...outcome, questionStatus: q?.status };
   }
 
+  /**
+   * Types a new message into a session's Claude prompt when no question is open (talking to Claude
+   * from a chat channel). Only for senders the channel already verified. Claude Code queues a message
+   * typed while it is still working, so this also works mid-turn; it never types while a question,
+   * permission dialog or menu is waiting.
+   * @returns {Promise<{result: 'accepted'|'rejected', reason?: string, queued?: boolean}>}
+   */
+  async sendPrompt({ sessionId, text, user, viaChannel }) {
+    const rejectWith = (reason) => ({ result: 'rejected', reason });
+    const trusted = viaChannel === 'whatsapp' && this.cfg.useWhatsApp;
+    if (!trusted) return rejectWith('new prompts are only accepted from a verified chat channel');
+    if (!this.cfg.allowFreeTextPrompts) return rejectWith('free-text prompts are disabled in the bridge configuration');
+    const body = String(text || '').trim();
+    if (!body) return rejectWith('empty message');
+    const s = this.db.getSession(sessionId);
+    if (!s) return rejectWith(`unknown session ${sessionId}`);
+    if (!this.sessions.isConnected(sessionId)) return rejectWith(`session ${sessionId} is not running`);
+    const blocking = this.db
+      .listQuestions({ status: ['PENDING', 'ANSWERED'], sessionId, limit: 100 })
+      .find((q) => q.kind !== 'free_text');
+    if (blocking) return rejectWith(`Claude is waiting for an answer to ${blocking.id} (${blocking.title}); answer that first`);
+    const queued = !s.waiting_prompt;
+    const result = await this.sessions.sendCommand(sessionId, { type: 'text', text: body, requireNoMenu: true }, { awaitResult: true });
+    this.db.audit({ actor: user || 'unknown', action: result.ok ? 'prompt.sent' : 'prompt.rejected', sessionId, detail: { chars: body.length, via: viaChannel, error: result.ok ? null : result.error } });
+    if (!result.ok) return rejectWith(`could not type the message: ${result.error}`);
+    // The UserPromptSubmit hook clears any open "turn finished" question and marks the session busy.
+    this.sessions.touch(sessionId, { waiting_prompt: 0, status: 'RUNNING' });
+    return { result: 'accepted', queued };
+  }
+
   async route(resp) {
     const rejectWith = (reason) => ({ result: 'rejected', reason });
     // `local` answers come from `bridge answer` over the token-protected loopback API.

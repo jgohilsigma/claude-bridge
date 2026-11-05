@@ -79,7 +79,7 @@ function questionBody(q) {
 export function replyHelp(q) {
   const p = q.payload || {};
   if (q.kind === 'permission') return `*allow*${p.dangerous ? ' *confirm*' : ''}${p.allowSession && !p.dangerous ? ' · *session*' : ''} · *deny <reason>*`;
-  if (q.kind === 'ask_user_question' && (p.questions || []).length > 1) return `one line per question (a number or your own text) · *dismiss*`;
+  if (q.kind === 'ask_user_question' && (p.questions || []).length > 1) return `one line per question (a number or your own text), or just answer in your own words · *dismiss*`;
   if (q.kind === 'ask_user_question' && p.questions?.[0]?.multiSelect) return `numbers like *1,3* or your own text · *dismiss*`;
   if (q.kind === 'free_text') return `${(q.options || []).length ? `*1*–*${q.options.length}* or ` : ''}your next instruction · *dismiss*`;
   if ((q.options || []).length) return `*1*–*${q.options.length}*${q.kind === 'ask_user_question' ? ' or your own text' : ''} · *dismiss*`;

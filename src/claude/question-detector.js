@@ -50,7 +50,9 @@ export class QuestionDetector {
 
     switch (name) {
       case 'SessionStart':
-        touch({ status: 'RUNNING' });
+        // A fresh/resumed/cleared session sits at an empty prompt; an initial prompt (claude "<text>")
+        // follows with UserPromptSubmit, which marks it busy again.
+        touch(['startup', 'resume', 'clear'].includes(event.source) ? { status: 'RUNNING', waiting_prompt: 1 } : { status: 'RUNNING' });
         return { output: null };
 
       case 'UserPromptSubmit':

@@ -42,7 +42,12 @@ export function parseAnswerText(q, raw) {
         .map((l) => l.trim())
         .filter(Boolean)
         .map((l) => (/^\d+\s*[).:-]\s+\S/.test(l) ? l.replace(/^\d+\s*[).:-]\s+/, '') : l));
-      if (lines.length !== questions.length) return { error: `This has ${questions.length} questions — reply with ${questions.length} lines, one answer per line.` };
+      if (lines.length !== questions.length) {
+        // Not one line per question: a reply in your own words that covers all of them, which Claude
+        // gets as the answer to every question. Only bare numbers are too ambiguous to pass on.
+        if (lines.every((l) => /^[\d\s,;]+$/.test(l))) return { error: `This has ${questions.length} questions. Reply with ${questions.length} lines (one number per line), or just write your answer in your own words.` };
+        return { type: 'general', value: { text } };
+      }
       const answers = {};
       for (let i = 0; i < questions.length; i++) {
         const pick = pickOptions(lines[i], questions[i].options || []);

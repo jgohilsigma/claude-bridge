@@ -50,6 +50,17 @@ export function askUserQuestionOutput(question, response) {
       answers = { [questions[0].question]: t };
       break;
     }
+    case 'general': {
+      // One reply in the user's own words covering all the questions: it is the answer to each.
+      const t = cleanText(response.value?.text);
+      if (!t) return reject('empty or oversized text answer');
+      answers = Object.fromEntries(questions.map((q) => [q.question, questions.length > 1 ? `(one reply for all questions) ${t}` : t]));
+      const updatedInput = { ...toolInput, answers };
+      const output = question.payload.via === 'PermissionRequest'
+        ? { hookSpecificOutput: { hookEventName: 'PermissionRequest', decision: { behavior: 'allow', updatedInput } } }
+        : { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', updatedInput } };
+      return { ok: true, output, summary: truncate(t, 200) };
+    }
     case 'answers': {
       const given = response.value?.answers;
       if (!given || typeof given !== 'object') return reject('missing answers');

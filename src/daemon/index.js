@@ -18,6 +18,7 @@ import { createServer } from './server.js';
 import { DaemonClient } from './client.js';
 import { WhatsAppConnection } from '../channels/whatsapp/connection.js';
 import { WhatsAppChannel } from '../channels/whatsapp/channel.js';
+import { SessionLauncher } from '../terminal/launcher.js';
 
 export async function startDaemon({ home, cfg: cfgOverride, logger: loggerOverride, fetchImpl, port = 0, whatsappLoader } = {}) {
   const p = ensureHome(home);
@@ -41,7 +42,7 @@ export async function startDaemon({ home, cfg: cfgOverride, logger: loggerOverri
   const client = new AppsScriptClient({ url: cfg.appsScriptUrl, secret: cfg.sharedSecret, logger: log.child('apps-script'), fetchImpl });
   const sync = new ChatSync({ db, cfg, logger: log.child('chat'), client, router, questions, notifier });
   const whatsapp = cfg.useWhatsApp
-    ? new WhatsAppChannel({ db, cfg, logger: log.child('whatsapp'), router, connection: new WhatsAppConnection({ authDir: cfg.whatsapp.authDir, caFile: cfg.whatsapp.caFile, logger: log.child('whatsapp'), loader: whatsappLoader }) })
+    ? new WhatsAppChannel({ db, cfg, logger: log.child('whatsapp'), router, launcher: new SessionLauncher({ db, cfg, logger: log.child('launcher') }), connection: new WhatsAppConnection({ authDir: cfg.whatsapp.authDir, caFile: cfg.whatsapp.caFile, logger: log.child('whatsapp'), loader: whatsappLoader }) })
     : null;
 
   sessions.on('ended', (s, how) => notifier.sessionEnded(s, how));

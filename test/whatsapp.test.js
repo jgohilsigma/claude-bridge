@@ -116,6 +116,23 @@ test('multi-question: one line per question; multi-select with "1,3"', async () 
   assert.deepEqual((await hook).json.hookSpecificOutput.updatedInput.answers, { 'Features?': 'Auth, Search', 'Ship?': 'next Monday' });
 });
 
+test('multi-question: a reply in your own words answers all of them; bare numbers still need one line each', async () => {
+  const sid = await registerSession(bridge.client, 'WA General');
+  const hook = runHook(bridge.home, sid, askEvent([
+    { question: 'Which layout?', header: 'L', multiSelect: false, options: [{ label: 'Grid' }, { label: 'Flex' }] },
+    { question: 'Keep the gap?', header: 'G', multiSelect: false, options: [{ label: 'Yes' }, { label: 'No' }] },
+  ]));
+  const q = await pendingQuestion(bridge.client, (x) => x.session_id === sid);
+  const msg = await waQuestion(q.id);
+  assert.match(msg.content.text, /or just answer in your own words/);
+  wa.userSays('1', { quote: msg.key });
+  await waitFor(() => wa.texts().some((x) => /Reply with 2 lines \(one number per line\), or just write your answer/.test(x)), { message: 'ambiguous number refused' });
+  wa.userSays('Use whatever matches the header section and remove the gap', { quote: msg.key });
+  const answers = (await hook).json.hookSpecificOutput.updatedInput.answers;
+  const expected = '(one reply for all questions) Use whatever matches the header section and remove the gap';
+  assert.deepEqual(answers, { 'Which layout?': expected, 'Keep the gap?': expected });
+});
+
 test('finished task message with context; reply is typed into Claude', async () => {
   const sid = await registerSession(bridge.client, 'WA Done');
   await runHook(bridge.home, sid, { hook_event_name: 'Stop', last_assistant_message: 'Added **validation**. All tests pass.' });

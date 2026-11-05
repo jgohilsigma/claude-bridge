@@ -50,6 +50,9 @@ export const DEFAULTS = Object.freeze({
   autoApprove: { rules: [] },
   extraDangerousPatterns: [],
   claudeCommand: 'claude',
+  // tmux session that remote `/new` sessions open a window in (watch with `tmux attach -t <name>`).
+  // Empty = run them in the background without a terminal. Ignored when tmux is not installed.
+  tmuxSession: 'claude-bridge',
   // Where questions are delivered. Any combination: gmail (or gchat — both go through the Apps Script
   // relay; its PUSH_MODE decides email vs Chat), whatsapp. Empty = gmail when an Apps Script URL is set.
   channels: [],
@@ -57,6 +60,8 @@ export const DEFAULTS = Object.freeze({
     to: [], // phone numbers to message (questions go to all; any may answer); empty = your own "Message yourself" chat
     allowed: [], // extra phone numbers allowed to answer (your own number is always allowed)
     groups: false, // one WhatsApp group per session ("Claude - <project>") with the BRIDGE_WHATSAPP_TO numbers
+    remoteStart: true, // allow `/new <name>` from WhatsApp to start a Claude session on this PC
+    startDir: '', // folder `/new` sessions start in (and relative `in <folder>` resolves against); empty = home
   },
   // After a local takeover, how long to wait for Claude to re-ask through its permission dialog.
   handoffSec: 30,
@@ -180,6 +185,12 @@ export function loadConfig({ home = bridgeHome(), env = process.env, includeProj
   if (e.BRIDGE_WHATSAPP_TO !== undefined) cfg.whatsapp.to = e.BRIDGE_WHATSAPP_TO;
   if (e.BRIDGE_WHATSAPP_GROUPS !== undefined) cfg.whatsapp.groups = /^(1|on|true|yes)$/i.test(String(e.BRIDGE_WHATSAPP_GROUPS).trim());
   if (e.BRIDGE_WHATSAPP_CA_FILE) cfg.whatsapp.caFile = e.BRIDGE_WHATSAPP_CA_FILE.replace(/^~(?=$|\/)/, os.homedir());
+  if (e.BRIDGE_WHATSAPP_REMOTE_START !== undefined && e.BRIDGE_WHATSAPP_REMOTE_START !== '') cfg.whatsapp.remoteStart = !/^(0|off|false|no)$/i.test(String(e.BRIDGE_WHATSAPP_REMOTE_START).trim());
+  if (e.BRIDGE_TMUX_SESSION !== undefined) {
+    const t = String(e.BRIDGE_TMUX_SESSION).trim();
+    cfg.tmuxSession = /^(|0|off|false|no)$/i.test(t) ? '' : t.replace(/[^\w.-]/g, '-');
+  }
+  if (e.BRIDGE_WHATSAPP_START_DIR) cfg.whatsapp.startDir = path.resolve(e.BRIDGE_WHATSAPP_START_DIR.replace(/^~(?=$|\/)/, os.homedir()));
   if (e.BRIDGE_WHATSAPP_ALLOWED !== undefined) cfg.whatsapp.allowed = splitList(e.BRIDGE_WHATSAPP_ALLOWED).map((x) => x.replace(/\D/g, ''));
   if (e.BRIDGE_PUSH_DELAY_SEC !== undefined && e.BRIDGE_PUSH_DELAY_SEC !== '') {
     const d = Number(e.BRIDGE_PUSH_DELAY_SEC);
