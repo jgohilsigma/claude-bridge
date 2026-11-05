@@ -1,0 +1,34 @@
+{
+  "questionTimeoutSec": 1800,
+  "longPollSec": 20,
+  "pollIdleDelayMs": 500,
+  "pushDelaySec": {
+    "permission": 5,
+    "ask_user_question": 5,
+    "free_text": 20,
+    "menu": 5,
+    "yes_no": 5,
+    "text_prompt": 5
+  },
+  "localPresenceSec": 20,
+  "notifications": {
+    "sessionStarted": false,
+    "sessionCompleted": true,
+    "sessionFailed": true,
+    "turnFinished": true,
+    "answerRejected": true
+  },
+  "detector": {
+    "enabled": true,
+    "idleMs": 1200,
+    "textPrompts": false
+  },
+  "allowFreeTextPrompts": true,
+  "autoApprove": {
+    "rules": []
+  },
+  "extraDangerousPatterns": [],
+  "claudeCommand": "claude",
+  "sessionHeartbeatSec": 5,
+  "sessionStaleSec": 45
+}

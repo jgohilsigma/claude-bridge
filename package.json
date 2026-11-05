@@ -1,0 +1,26 @@
+{
+  "name": "claude-chat-bridge",
+  "version": "1.0.0",
+  "description": "Free two-way remote control for multiple Claude Code CLI sessions through Google Chat (Apps Script + local Node.js bridge).",
+  "type": "module",
+  "bin": {
+    "bridge": "bin/bridge.js"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "postinstall": "node scripts/fix-pty-perms.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js",
+    "test:e2e-claude": "node test/e2e-claude.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc14",
+    "@xterm/headless": "6.0.0",
+    "node-pty": "1.1.0",
+    "pino": "9.14.0",
+    "qrcode": "1.5.4"
+  },
+  "license": "MIT",
+  "private": true
+}

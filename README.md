@@ -1,4 +1,97 @@
-# claude-chat-bridge — answer your Claude Code sessions from Google Chat
+# claude-chat-bridge — answer your Claude Code sessions from WhatsApp, Gmail or Google Chat
+
+## Quick start
+
+All commands run in the project folder. `node bin/bridge.js …` works everywhere; after `npm link` you can type `bridge …` instead.
+
+### 1. Install (once)
+
+```bash
+node -v                            # needs v22.13 or newer
+cd "claude-chat-bridge"
+npm install
+node bin/bridge.js doctor          # checks Node, Claude Code and the terminal (PTY)
+```
+
+### 2. Pick where questions go
+
+```bash
+node bin/bridge.js channels whatsapp         # WhatsApp only
+node bin/bridge.js channels gmail            # email only (needs the Apps Script setup below)
+node bin/bridge.js channels gmail,whatsapp   # both: the first answer wins
+node bin/bridge.js channels                  # show the current setting
+```
+
+Switching saves `BRIDGE_CHANNELS` in your `.env` and restarts the bridge. Turning email off also pauses Apps Script, so it stops sending emails. That needs Apps Script 1.6.0: paste `apps-script/Code.gs` into the editor once, then Deploy → Manage deployments → Edit → New version.
+
+### 3. WhatsApp setup
+
+**Recommended: give the bridge its own WhatsApp number** (a second SIM, or WhatsApp Business with another number). Then Claude's messages show on the **left** as received messages from "Claude", and your phone gets **notifications**. If you link your personal number instead, everything the bridge posts looks like you sent it: right side, and no notifications for you.
+
+1. Set up WhatsApp (or WhatsApp Business) with the bot's number on a phone. Set its profile name to e.g. **Claude**.
+2. Add to `.env` in the project folder:
+   ```bash
+   BRIDGE_CHANNELS=whatsapp
+   # The people who get the questions and may answer (country code, comma-separated):
+   BRIDGE_WHATSAPP_TO=919876543210,919812345678
+   # One WhatsApp group per session, named "Claude - <session name>":
+   BRIDGE_WHATSAPP_GROUPS=on
+   ```
+3. Link the bridge. Scan the QR code with the **bot number's** WhatsApp (Settings → Linked devices → Link a device):
+   ```bash
+   node bin/bridge.js whatsapp login     # also saves the QR as an image and opens it, if the terminal one won't scan
+   node bin/bridge.js whatsapp status    # → connected — linked as +<bot number>
+   ```
+4. Everyone in `BRIDGE_WHATSAPP_TO` should save the bot's number as a contact. Otherwise messages can land in "message requests."
+
+Switching from your personal number to a bot number:
+```bash
+node bin/bridge.js whatsapp logout     # unlink the current account
+node bin/bridge.js whatsapp login      # scan with the bot number's WhatsApp
+```
+
+### 4. Run Claude sessions
+
+```bash
+node bin/bridge.js start "Session 1"                  # Claude in this folder → WhatsApp group "Claude - Session 1"
+node bin/bridge.js start "API" --cwd ~/code/api       # Claude in another folder → group "Claude - API"
+node bin/bridge.js start "Session 1" -- --model opus  # pass arguments to claude after --
+```
+
+Each command opens a normal Claude Code terminal. When Claude asks something, the question goes to that session's group (or to email, depending on your channels). **Reply to the question message** with e.g. `1`, `allow`, `deny use staging`, or any text. In a session group, a plain message answers that session's open question. Other commands you can send: `pending` · `sessions` · `status` · `help`.
+
+- Every `start` creates a **new** group. Groups are kept after the session ends.
+- Only you and the numbers in `BRIDGE_WHATSAPP_TO`/`BRIDGE_WHATSAPP_ALLOWED` can answer. Other people's messages are ignored.
+
+### 5. Everyday commands
+
+```bash
+node bin/bridge.js sessions              # running sessions
+node bin/bridge.js pending               # questions waiting for an answer
+node bin/bridge.js answer q1a2b3 1       # answer from the PC instead
+node bin/bridge.js whatsapp test         # test message to every running session's group (or to the numbers)
+node bin/bridge.js logs --follow         # live log
+node bin/bridge.js doctor                # health check
+node bin/bridge.js stop                  # stop the background bridge (sessions keep running and re-attach)
+```
+
+### 6. If something doesn't arrive
+
+| Symptom | Check |
+|---|---|
+| `whatsapp status` says `connecting` | Wait a few seconds after a restart. If it stays, run `node bin/bridge.js logs`. |
+| `not_linked` / `logged_out` | `node bin/bridge.js whatsapp login` |
+| QR code won't scan | Scan the image that opens (also saved as `~/.claude-chat-bridge/whatsapp-qr.png`). |
+| No group appears | `node bin/bridge.js logs` and look for `session group`. You need at least one number in `BRIDGE_WHATSAPP_TO` besides the bot's own. |
+| A member wasn't added | Their privacy settings block it; they get an invite link instead. |
+| Still getting emails with `channels whatsapp` | Update Apps Script to 1.6.0 (see step 2), then run `node bin/bridge.js channels whatsapp` again. |
+| Company network / firewall | `node bin/bridge.js doctor`. See [WhatsApp setup](#whatsapp-setup-linked-device). |
+
+The full documentation follows: Gmail and Google Chat setup, configuration, security, troubleshooting.
+
+---
+
+## Overview
 
 Run several Claude Code CLI sessions on your PC, walk away, and answer their questions from Google Chat on your phone. Claude Code can stop for several kinds of input, and each one is forwarded to a **Claude Assistant** Chat app with buttons:
 - multiple-choice questions,
@@ -40,7 +133,11 @@ There is no server to host, no inbound port, and no paid service.
 
 ## Contents
 
+- [Quick start](#quick-start)
+
 0. [Gmail setup (no admin rights needed)](#gmail-setup-no-admin-rights-needed)
+0a. [Choosing platforms: BRIDGE_CHANNELS](#choosing-platforms-bridge_channels)
+0b. [WhatsApp setup (linked device)](#whatsapp-setup-linked-device)
 
 1. [What gets forwarded, and how answers return](#1-what-gets-forwarded-and-how-answers-return)
 2. [Prerequisites](#2-prerequisites)
@@ -141,6 +238,66 @@ node bin/bridge.js start "SPM Backend" --cwd ~/code/spm-backend
 **Phone notifications:** some Gmail apps don't notify for mail you send to yourself. If yours doesn't, set `NOTIFY_EMAIL` to another address you read on the phone. Answer links still work from there, as long as you open them signed in to the allowed account. Replies, however, must be sent from the script owner's account.
 
 ---
+
+## Choosing platforms: `BRIDGE_CHANNELS`
+
+Set in `.env` (project folder or `~/.claude-chat-bridge/.env`) which platforms receive questions:
+
+```bash
+BRIDGE_CHANNELS=gmail             # email only (default when an Apps Script URL is set)
+BRIDGE_CHANNELS=whatsapp          # WhatsApp only (no Apps Script needed)
+BRIDGE_CHANNELS=gmail,whatsapp    # both
+```
+
+- **Every listed platform gets every question.** The first answer from any of them wins, and the others show it:
+  - WhatsApp edits its message to e.g. *"✅ Answered: Postgres (via email)"*;
+  - a late email reply gets *"already handled"*.
+- **Switch with one command:** `node bin/bridge.js channels whatsapp` (or `gmail`, or `gmail,whatsapp`). It updates `BRIDGE_CHANNELS` in the `.env` that sets it, restarts the bridge, and, when email/Chat is turned off, tells Apps Script to pause. A paused Apps Script sends nothing: no reminders and no "bridge disconnected" notices. It turns back on by itself when you switch email back on. Run `node bin/bridge.js channels` to see the current setting.
+- **If you edit `.env` by hand instead**, restart the bridge with `node bin/bridge.js stop`; it starts again with the next command. It pauses Apps Script on start whenever email/Chat isn't in the list. Check with `node bin/bridge.js doctor`.
+- **Pausing needs Apps Script 1.6.0 or later.** With an older `Code.gs`, copy the new one into the editor and deploy a new version (Deploy → Manage deployments → Edit → New version).
+- Telegram is planned next and will be added the same way (`BRIDGE_CHANNELS=…,telegram`).
+
+## WhatsApp setup (linked device)
+
+The bridge links to your WhatsApp the same way WhatsApp Web does: free, running on your PC, no Meta account or server.
+
+1. Add `whatsapp` to `BRIDGE_CHANNELS` in `.env`, e.g. `BRIDGE_CHANNELS=gmail,whatsapp`, then run `node bin/bridge.js stop`.
+2. Link it:
+   ```bash
+   node bin/bridge.js whatsapp login
+   ```
+   A QR code appears in the terminal. On your phone: **WhatsApp → Settings → Linked devices → Link a device**, and scan it. You'll see `✅ Linked as +91…`, and a welcome message arrives in your **"Message yourself"** chat (your own number at the top of the chat list).
+3. Check: `node bin/bridge.js whatsapp status` and `node bin/bridge.js doctor`.
+
+**Answering on WhatsApp**
+- Each question arrives in your "Message yourself" chat with the same context as the email: what you asked, what Claude did, and what it said.
+- **Swipe right on a question message (Reply)** and type:
+  - `1` / `2` … to pick an option, or your own text;
+  - `allow` · `session` · `deny <reason>` for permissions (`allow confirm` for sensitive operations);
+  - for questions with several parts, one line per part (`1,3` picks several options);
+  - `dismiss` to skip.
+- If only one question is open, you can just type the answer without swiping. With several open, either swipe-reply, or start with the question id, e.g. `qk3u5f 2`.
+- **Accepted answers get a ✅ reaction.** Problems are replied in the chat, e.g. *"Not delivered: you already answered in the terminal"*.
+- **Commands:** `sessions`, `pending`, `status`, `help`.
+- **Notifications** (session finished or failed) arrive in the same chat.
+
+**Good to know**
+- **Unofficial client:** linking uses the open-source Baileys library, not an official WhatsApp API. WhatsApp doesn't approve automated clients, so there is a small risk that WhatsApp restricts the number. The bridge only messages your own chat, at low volume, which keeps that risk low. If that's not acceptable, use email only.
+- **Notifications:** your phone may not show a notification for messages a linked device posts in your own "Message yourself" chat. If you miss them, link the bridge to a **second WhatsApp number** (e.g. WhatsApp Business on another SIM) and set `BRIDGE_WHATSAPP_TO=<your main number>`. The bridge account then messages your main number like a normal contact, and only that number may answer.
+- **Several people:** list several numbers, separated by commas: `BRIDGE_WHATSAPP_TO=919876543210,919812345678`. Every number gets each question and notification, and any of them can answer by replying to their copy. The first answer wins, every copy is updated to show who answered, and later replies are refused. Each number must be able to receive messages from the linked account. A number the recipient hasn't saved or messaged before may land in "message requests" or be held back by WhatsApp's spam filters.
+- **One group per session:** set `BRIDGE_WHATSAPP_GROUPS=on`. Every new session (`node bin/bridge.js start "Session 1"`) gets its own group **"Claude - Session 1"**. The members are the `BRIDGE_WHATSAPP_TO` numbers, and the linked account creates the group. All of that session's questions and notices go there, and nothing goes to 1-to-1 chats. Anyone in the group who is listed in `BRIDGE_WHATSAPP_TO`/`BRIDGE_WHATSAPP_ALLOWED` can answer, as can you from the linked phone. A plain reply answers that session's open question.
+  - Every new session makes a new group. Groups are kept after the session ends.
+  - If someone's privacy settings block adding them, they get an invite link in a 1-to-1 chat instead.
+  - If a group can't be created (for example, `BRIDGE_WHATSAPP_TO` has no number besides the linked one), that session's messages go to the normal chats, and the bridge tries again after 5 minutes.
+  - The linked account posts as you, so **your own phone gets no notifications** for these groups. The other members do.
+  - Creating many groups quickly from an unofficial client can get a number flagged by WhatsApp. Keep it to a normal pace.
+- **Login storage:** the linked-device login is stored in `~/.claude-chat-bridge/whatsapp-auth` (mode 700). It keeps working while your phone is offline for up to about 14 days.
+- **Company firewalls:** some office networks inspect HTTPS (e.g. **Sophos**) and block the WhatsApp connection with *"unable to verify the first certificate"*. `bridge doctor` detects this and names the firewall. Your WhatsApp messages stay end-to-end encrypted either way. Fixes:
+  1. ask IT to exclude `*.whatsapp.net` / `*.whatsapp.com` from SSL inspection;
+  2. or get the firewall's CA certificate (`.pem`) from IT and set `BRIDGE_WHATSAPP_CA_FILE=/path/to/ca.pem`;
+  3. or run on another network (phone hotspot / home Wi-Fi).
+- **Unlinking:** `node bin/bridge.js whatsapp logout`, or remove **Claude Bridge** under Linked devices on the phone.
+- **Security:** only messages from your own account in your own chat (or the configured numbers) are accepted. Answers pass the same validation as email answers: open question, matching session, not expired, valid option. Messages from other chats and old chat history are ignored.
 
 ## 1. What gets forwarded, and how answers return
 
@@ -470,7 +627,7 @@ Logs: see [Logs & monitoring](#logs--monitoring).
 ## 15. Testing
 
 ```bash
-npm test                     # 61 unit + integration + reliability + PTY tests (no Google account needed)
+npm test                     # 84 tests: unit, integration, reliability, PTY, Gmail and WhatsApp (no accounts needed)
 npm run test:e2e-claude      # real Claude Code (Haiku): 2 concurrent sessions, every prompt answered from "Chat"
 E2E_SESSIONS=1 E2E_PERMISSION_MODE=inherit E2E_MODEL=inherit npm run test:e2e-claude   # with YOUR model + permission mode
 ```
@@ -631,4 +788,3 @@ When an answer doesn't seem to arrive, follow the question id (e.g. `qgnwjg`, sh
 - While a question waits for a remote answer, Claude's `AskUserQuestion` dialog isn't drawn. Press any key in that terminal to show it; the remote question stays answerable. Permission dialogs remain visible all the time.
 - Script Properties hold ≤ ~9 KB per question. Very long texts are shortened in Chat; the full text stays in the terminal and the local DB.
 - Apps Script quotas apply (executions, UrlFetch calls, trigger runtime). The bridge long-polls (≈ 3 requests/min when idle), which fits normal Workspace quotas. See <https://developers.google.com/apps-script/guides/services/quotas>.
-# claude-bridge

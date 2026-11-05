@@ -1,0 +1,18 @@
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Accessing workspace:
+
+ /private/tmp/claude-501/-Users-asset-611-Documents-Jay-Gohil-Node-Examples/0d44d0c0-ef3b-4624-b107-527c34e9315a/scratc
+ hpad/spike/proj
+
+ Quick safety check: Is this a project you created or one you trust? (Like your own code, a well-known open source
+ project, or work from your team). If not, take a moment to review what's in this folder first.
+
+ Claude Code'll be able to read, edit, and execute files here.
+
+ Security guide
+
+ ❯ No, exit
+   Yes, I trust this folder
+
+ Enter to confirm · Esc to cancel

@@ -1,0 +1,20 @@
+▗ ▗   ▖ ▖  Claude Code v2.1.280
+           Haiku 4.5 · Claude Team
+  ▘▘ ▝▝    /…/0d44d0c0-ef3b-4624-b107-527c34e9315a/scratchpad/spike/proj
+
+❯ Use the AskUserQuestion tool to ask me which color I prefer with options Red and Blue. Then tell me which I picked,
+  in one sentence.
+
+⏺ User answered Claude's questions:
+  ⎿  · Which color do you prefer? → Red
+
+⏺ You picked Red. Options were:
+  1. Red
+  2. Blue
+
+✻ Cooked for 4s · done 1:15 PM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · ? for shortcuts       esc to interrupt
